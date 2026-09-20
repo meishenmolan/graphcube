@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>图论与魔方</title>
+<style>
+  :root{
+    --bg:#f8faf6; --ink:#5c4632; --brown:#8a5a2b; --line:#e2dccd; --hint:#b3a68c;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    overflow:hidden; user-select:none; -webkit-user-select:none;
+    touch-action:none; overscroll-behavior:none;
+  }
+  #app{height:100vh;height:100dvh;display:flex;flex-direction:column;}
+  header{text-align:center;padding:9px 12px 0;flex:0 0 auto;}
+  h1{
+    font-family:"STKaiti","KaiTi","STSong","SimSun",serif;
+    font-size:23px;font-weight:600;color:var(--brown);letter-spacing:9px;text-indent:9px;
+  }
+  .rule{width:126px;height:1px;margin:6px auto 0;background:var(--brown);opacity:.5;}
+  .tag{font-size:10px;color:var(--hint);margin-top:4px;letter-spacing:2.5px;}
+  #diagramWrap{flex:1 1 50%;position:relative;min-height:0;}
+  #diagram{width:100%;height:100%;display:block;touch-action:none;}
+  .divider{flex:0 0 1px;background:var(--line);margin:2px 0;}
+  #cubeWrap{flex:1 1 50%;position:relative;min-height:0;}
+  #cube{width:100%;height:100%;display:block;touch-action:none;}
+  #hint{
+    position:absolute;left:0;right:0;bottom:42px;text-align:center;
+    font-size:10px;color:var(--hint);letter-spacing:1px;pointer-events:none;
+  }
+  #btns{position:absolute;left:0;right:0;bottom:7px;display:flex;gap:8px;justify-content:center;pointer-events:none;}
+  #btns button{
+    pointer-events:auto;font-family:inherit;font-size:12px;letter-spacing:2px;
+    color:var(--brown);background:rgba(255,253,248,.94);border:1px solid var(--line);
+    border-radius:999px;padding:6px 15px;cursor:pointer;
+    box-shadow:0 1px 3px rgba(120,100,60,.07);
+  }
+  #btns button:active{background:#f4efe2;}
+  #btns button:disabled{opacity:.4;}
+  @media (max-width:520px){
+    #btns button{padding:9px 18px;font-size:13px;}
+    #hint{font-size:9.5px;bottom:48px;}
+  }
+  #setBtn{
+    position:absolute;right:10px;top:40px;width:25px;height:25px;border-radius:50%;
+    border:1px solid var(--line);background:rgba(255,253,248,.94);color:var(--brown);
+    font-size:13px;line-height:23px;text-align:center;cursor:pointer;z-index:5;
+  }
+  #setPanel{
+    position:absolute;right:10px;top:70px;width:238px;z-index:6;
+    background:rgba(255,253,248,.98);border:1px solid var(--line);border-radius:12px;
+    box-shadow:0 6px 24px rgba(90,70,40,.18);padding:10px 12px;
+    font-size:12px;color:#6b563e;display:none;
+  }
+  #setPanel.show{display:block;}
+  #setPanel .row{display:flex;align-items:center;justify-content:space-between;margin:7px 0;}
+  #setPanel .row label{letter-spacing:.5px;}
+  #setPanel input[type=range]{width:96px;}
+  #setPanel .sw{
+    width:38px;height:21px;border-radius:999px;background:#e6e0d2;position:relative;
+    cursor:pointer;transition:background .15s;flex:0 0 auto;
+  }
+  #setPanel .sw::after{
+    content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18);transition:left .15s;
+  }
+  #setPanel .sw.on{background:#ec9a3c;}
+  #setPanel .sw.on::after{left:19px;}
+  #setPanel .sep{height:1px;background:var(--line);margin:9px 0;}
+  #setPanel .mini{
+    font-family:inherit;font-size:11.5px;color:var(--brown);background:#f4efe2;
+    border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer;width:100%;
+  }
+  #setPanel .tip{font-size:10.5px;color:#b3a68c;line-height:1.5;margin-top:2px;}
+  /* 只显示魔方：隐藏圆环图，魔方占满 */
+  #app.cubeOnly #diagramWrap{display:none;}
+  #app.cubeOnly .divider{display:none;}
+  #app.cubeOnly #cubeWrap{flex:1 1 100%;}
+  #info{
+    position:absolute;right:10px;top:9px;width:25px;height:25px;border-radius:50%;
+    border:1px solid var(--line);background:rgba(255,253,248,.94);color:var(--brown);
+    font-size:13px;font-style:italic;font-family:Georgia,"Times New Roman",serif;
+    line-height:23px;text-align:center;cursor:pointer;z-index:5;
+  }
+  #overlay{
+    position:fixed;inset:0;background:rgba(60,48,32,.30);display:none;
+    align-items:center;justify-content:center;z-index:20;padding:22px;
+  }
+  #overlay.show{display:flex;}
+  #panel{
+    max-width:430px;max-height:82vh;overflow:auto;background:#fffdf7;border-radius:14px;
+    padding:18px 20px;box-shadow:0 8px 40px rgba(90,70,40,.25);
+    font-size:12.5px;line-height:1.8;color:#6b563e;
+  }
+  #panel h2{font-size:14px;color:var(--brown);letter-spacing:3px;margin-bottom:8px;font-weight:600;}
+  #panel b{color:#8a5a2b;}
+  #panel p{margin:6px 0;}
+  #panel .k{color:#c07a1e;}
+  #panel .btnrow{text-align:right;}
+  #panel button{
+    margin-top:12px;font-family:inherit;font-size:12px;color:var(--brown);
+    background:#f4efe2;border:1px solid var(--line);border-radius:999px;padding:6px 16px;cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>图论与魔方</h1>
+    <div class="rule"></div>
+    <div class="tag">圆环 · 魔方状态的图论映射 <span style="opacity:.55">v13</span></div>
+  </header>
+  <div id="diagramWrap"><canvas id="diagram"></canvas></div>
+  <div class="divider"></div>
+  <div id="cubeWrap">
+    <canvas id="cube"></canvas>
+    <div id="hint">按住贴纸滑动＝转该层 · 边缘空白/两指拖＝转视角 · 按住不动＝看对应点</div>
+    <div id="btns">
+      <button id="btnScramble">打乱</button>
+      <button id="btnUndo">撤销</button>
+      <button id="btnReset">复位</button>
+    </div>
+    <div id="info">i</div>
+    <div id="setBtn">⚙</div>
+    <div id="setPanel">
+      <div class="row"><label>圆环：轴标注 x/y/z</label><div class="sw" id="swLabels"></div></div>
+      <div class="row"><label>圆环：圈出相邻贴纸</label><div class="sw" id="swNeighbors"></div></div>
+      <div class="sep"></div>
+      <div class="row"><label>只显示魔方（隐藏圆环）</label><div class="sw" id="swCubeOnly"></div></div>
+      <div class="sep"></div>
+      <div class="row"><label>魔方：拖动锁定单轴</label><div class="sw" id="swAxisLock"></div></div>
+      <div class="row"><label>拖动灵敏度</label><input type="range" id="rgTol" min="5" max="24" step="1"></div>
+      <div class="tip">灵敏度越大＝越轻的滑动就算一次转动；锁定单轴可避免斜着拖时转错方向。</div>
+      <div class="sep"></div>
+      <div class="row"><label>视角：左右拖动反向</label><div class="sw" id="swOrbitRevH"></div></div>
+      <div class="row"><label>视角：上下拖动反向</label><div class="sw" id="swOrbitRevV"></div></div>
+      <div class="row"><label>视角旋转速度</label><input type="range" id="rgOrbitSpeed" min="50" max="180" step="5"></div>
+      <div class="tip">默认：左右跟手、上下为「拖下→看底面」。若觉得方向相反，打开对应开关即可。</div>
+      <div class="sep"></div>
+      <button class="mini" id="btnViewReset">视角回到初始</button>
+    </div>
+  </div>
+</div>
+<div id="overlay"><div id="panel">
+<h2>映射说明</h2>
+<p>上方圆环是魔方 54 个贴纸的状态映射：</p>
+<p>1．三个圆心构成等边三角形，分别对应魔方的三条坐标轴；每个圆心带三个同心圆（半径 75、86、97，间隔 11），对应这条轴上的三层。</p>
+<p>2．每个面的 9 个贴纸，由“面内两维坐标 → 环序号”确定，位置 = 两族圆的<span class="k">交点</span>。54 个贴纸恰好两两对应 54 个交点（与参考图逐点核对，误差约 2 像素）。</p>
+<p>3．转动某一层时：该层四条侧边的 12 个点沿对应圆环<span class="k">滑动</span>（像珠子沿导线，各自走最短的那段弧），被转动面上的 8 个点绕自己面心原地旋转；正在滑动的圆环以橙色高亮。</p>
+<p>4．每个点都<b>绑定自己的贴纸</b>：颜色跟着贴纸走，不换色、不跳变。魔方每个状态 ⟷ 圆环上 54 个点的配色。</p>
+<p>5．<b>流动方向</b>：一次转动里，同一圆环上的 12 个点朝同一个方向流动（像传送带），
+所以任何时刻都不会有两个点相互穿过；高亮环上的小箭头指示行进方向。
+面内自转的 8 个点沿各自小圆反向（镜像）旋转。</p>
+<p>6．<b>左右手与三维视角</b>：转动是三维的 —— 同一个转动，从轴的一侧看是顺时针，
+从另一侧看就是逆时针（左右手互为镜像）。圆环是一张固定的俯视图；当把魔方视角转到
+另一侧时，屏幕上的转向会与圆环方向呈现镜像关系，这是三维的手性，不是映射错误。</p>
+<p>7．<b>联动高亮</b>：按住任意贴纸不松开，圆环上会点亮它对应的那个点（浅色圈是它所在的整个面），
+松开即消失 —— 这是从三维贴纸到二维圆环最直接的对照。圆心旁的 x / y / z 是魔方三条轴
+（左右 / 上下 / 前后）。</p>
+<p id="dbgLine" style="color:#b09264;font-size:11.5px">最近一步：—</p>
+<p id="chkLine" style="color:#b09264;font-size:11.5px">自检：—</p>
+<p style="color:#c8bba4;font-size:11px">版本 v13（启动一律带圆环；修复首屏画布拉伸；拖动方向恢复默认并加多重重测兜底）</p>
+<div class="btnrow"><button id="btnClose">知道了</button></div>
+</div></div>
+<script>
+"use strict";
+/* =====================================================================
+   图论与魔方 —— 状态映射程序（v6：同向流动 + 联动高亮 + 方向箭头）
+   ---------------------------------------------------------------------
+   映射规范（与参考图逐点核对）：
+   · 圆家族中心 A=(0,0) B=(116,0) C=(58,-100.464)，对应 x / z / y 轴
+     （本程序内部坐标系与屏幕一致：x 右，y 下）
+   · 环半径 [75,86,97]；环序号 k = 3 - 层坐标
+   · 面↔色：U黄 D白 L绿 F红 R蓝 B橙
+   · 动画：同一圆环上的 12 个点【同向流动】（像传送带，任意时刻互不相穿），
+     面内自转的 8 个点沿各自小圆反向镜像旋转 —— 与参考图两张"转动中帧"
+     逐点吻合（img2：18/18 点，平均 0.89px；img3：22/24 点，其中 5 个
+     走在长弧上的中点误差 1.1~1.8px）
+   ===================================================================== */
+
+/* ---------------- 1. 几何模型 ---------------- */
+const RAD=[75,86,97];
+const CA=[0,0], CB=[116,0], CC=[58,-100.46410161513775];
+const CENT={x:CA,y:CC,z:CB};
+const ringOf=c=>3-c;
+const SIDESEL={U:1,D:0,F:0,B:1,R:1,L:0};
+const FACENORM={U:[0,1,0],D:[0,-1,0],F:[0,0,1],B:[0,0,-1],R:[1,0,0],L:[-1,0,0]};
+const FACECOLOR={U:'yellow',D:'white',F:'red',B:'orange',R:'blue',L:'green'};
+const COLORHEX={yellow:'#f2cd56',white:'#fdfcfa',red:'#de6945',orange:'#ec9c44',green:'#4e9769',blue:'#3d68bc'};
+const FACES=['U','D','F','B','R','L'];
+
+function inter(c1,r1,c2,r2){
+  const dx=c2[0]-c1[0], dy=c2[1]-c1[1];
+  const d=Math.hypot(dx,dy);
+  const a=(r1*r1-r2*r2+d*d)/(2*d);
+  const h=Math.sqrt(Math.max(0,r1*r1-a*a));
+  const xm=c1[0]+a*dx/d, ym=c1[1]+a*dy/d;
+  const px=-dy/d, py=dx/d;
+  return [[xm+h*px,ym+h*py],[xm-h*px,ym-h*py]];
+}
+const CELLS={};
+for(const f of FACES){
+  CELLS[f]=[];
+  for(let r=0;r<3;r++)for(let c=0;c<3;c++){
+    let p;
+    if(f==='U')p=[c,2,r]; else if(f==='D')p=[c,0,2-r];
+    else if(f==='F')p=[c,2-r,2]; else if(f==='B')p=[2-c,2-r,0];
+    else if(f==='R')p=[2,2-r,2-c]; else p=[0,2-r,c];
+    CELLS[f].push({r,c,p});
+  }
+}
+const SITES={};
+for(const f of FACES){
+  const fam=(f==='U'||f==='D')?['x','z']:((f==='F'||f==='B')?['x','y']:['z','y']);
+  for(const cell of CELLS[f]){
+    const co={x:cell.p[0],y:cell.p[1],z:cell.p[2]};
+    const k1=ringOf(co[fam[0]]), k2=ringOf(co[fam[1]]);
+    const pts=inter(CENT[fam[0]],RAD[k1-1],CENT[fam[1]],RAD[k2-1]);
+    SITES[f+','+cell.r+','+cell.c]={p:pts[SIDESEL[f]]};
+  }
+}
+const siteKey=(f,r,c)=>f+','+r+','+c;
+
+/* ---------------- 2. 魔方引擎 ---------------- */
+function rotVec(v,a,s){const x=v[0],y=v[1],z=v[2];
+  if(a===0)return s>0?[x,z,2-y]:[x,2-z,y];
+  if(a===1)return s>0?[2-z,y,x]:[z,y,2-x];
+  return s>0?[2-y,x,z]:[y,2-x,z];}
+function rotN(v,a,s){const x=v[0],y=v[1],z=v[2];
+  if(a===0)return s>0?[x,z,-y]:[x,-z,y];
+  if(a===1)return s>0?[-z,y,x]:[z,y,-x];
+  return s>0?[-y,x,z]:[y,-x,z];}
+function rotMat(a,s){
+  if(a===0)return s>0?[[1,0,0],[0,0,1],[0,-1,0]]:[[1,0,0],[0,0,-1],[0,1,0]];
+  if(a===1)return s>0?[[0,0,-1],[0,1,0],[1,0,0]]:[[0,0,1],[0,1,0],[-1,0,0]];
+  return s>0?[[0,-1,0],[1,0,0],[0,0,1]]:[[0,1,0],[-1,0,0],[0,0,1]];}
+function matMul(A,B){const C=[[0,0,0],[0,0,0],[0,0,0]];
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++){let s=0;for(let k=0;k<3;k++)s+=A[i][k]*B[k][j];C[i][j]=s;}return C;}
+function matVec(M,v){return [M[0][0]*v[0]+M[0][1]*v[1]+M[0][2]*v[2],
+                             M[1][0]*v[0]+M[1][1]*v[1]+M[1][2]*v[2],
+                             M[2][0]*v[0]+M[2][1]*v[1]+M[2][2]*v[2]];}
+/* 部分旋转（用于动画中间帧）：绕轴 a 转 ang（带符号弧度） */
+function rotPartial(p,a,ang){
+  const x=p[0]-1,y=p[1]-1,z=p[2]-1;
+  let nx=x,ny=y,nz=z;
+  if(a===0){const c=Math.cos(-ang),s=Math.sin(-ang);ny=y*c-z*s;nz=y*s+z*c;}
+  else if(a===1){const c=Math.cos(ang),s=Math.sin(ang);nx=x*c-z*s;nz=x*s+z*c;}
+  else{const c=Math.cos(ang),s=Math.sin(ang);nx=x*c-y*s;ny=x*s+y*c;}
+  return [nx+1,ny+1,nz+1];
+}
+function rotPartialDir(v,a,ang){
+  const x=v[0],y=v[1],z=v[2];
+  let nx=x,ny=y,nz=z;
+  if(a===0){const c=Math.cos(-ang),s=Math.sin(-ang);ny=y*c-z*s;nz=y*s+z*c;}
+  else if(a===1){const c=Math.cos(ang),s=Math.sin(ang);nx=x*c-z*s;nz=x*s+z*c;}
+  else{const c=Math.cos(ang),s=Math.sin(ang);nx=x*c-y*s;ny=x*s+y*c;}
+  return [nx,ny,nz];
+}
+let CUBIES=[];
+function initCube(){
+  CUBIES=[];
+  for(let x=0;x<3;x++)for(let y=0;y<3;y++)for(let z=0;z<3;z++){
+    if(x===1&&y===1&&z===1)continue;
+    const st=[];
+    for(const f of FACES){
+      const n=FACENORM[f];
+      const on=(n[0]!==0&&x===(n[0]>0?2:0))||(n[1]!==0&&y===(n[1]>0?2:0))||(n[2]!==0&&z===(n[2]>0?2:0));
+      if(on)st.push({n:n.slice(),color:f});
+    }
+    CUBIES.push({p:[x,y,z],M:[[1,0,0],[0,1,0],[0,0,1]],stickers:st});
+  }
+}
+function cubieAt(p){for(const c of CUBIES)if(c.p[0]===p[0]&&c.p[1]===p[1]&&c.p[2]===p[2])return c;return null;}
+function faceOfNormal(nn){for(const f of FACES){const F=FACENORM[f];
+  if(F[0]===nn[0]&&F[1]===nn[1]&&F[2]===nn[2])return f;}return null;}
+function readFace(f){
+  const out=[];
+  for(let r=0;r<3;r++){const row=[];
+    for(let c=0;c<3;c++){
+      const p=CELLS[f][r*3+c].p;
+      const cb=cubieAt(p);let col=null;
+      if(cb)for(const st of cb.stickers){
+        const nn=matVec(cb.M,st.n);const F=FACENORM[f];
+        if(nn[0]===F[0]&&nn[1]===F[1]&&nn[2]===F[2])col=st.color;
+      }
+      row.push(col);
+    }
+    out.push(row);
+  }
+  return out;
+}
+function applyMove(a,layer,s){
+  for(const c of CUBIES){
+    if(c.p[a]!==layer)continue;
+    c.p=rotVec(c.p,a,s);
+    c.M=matMul(rotMat(a,s),c.M);
+  }
+}
+/* ---- 一次转动的动画数据 ----
+   · slides: 12 个侧边点沿圆环滑动（半径可微调，走【最短弧】）
+   · rots  : 被转面的 8 个环点绕簇心原地旋转（同样走【最短弧】）
+   · statics: 其余 34 个点（位置+颜色快照，动画期间完全静止、不变色）
+   · active: 高亮圆环（半径）                                        */
+function shortArc(a1,a2){
+  let d=a2-a1;
+  while(d>Math.PI)d-=2*Math.PI;
+  while(d<=-Math.PI)d+=2*Math.PI;
+  return d;
+}
+function computeMoveData(a,layer,s){
+  const slides=[],rots=[],statics=[];
+  const axisName=['x','y','z'][a];
+  const cc=CENT[axisName];
+  const movingKeys=new Set();
+  const dir=rotVec([0,0,0],a,s); // 仅用于判断轴
+  for(const c of CUBIES){
+    if(c.p[a]!==layer)continue;
+    for(const st of c.stickers){
+      const nn=matVec(c.M,st.n);
+      const f1=faceOfNormal(nn);
+      if(!f1)continue;
+      let cell1=null;
+      for(const cl of CELLS[f1])if(cl.p[0]===c.p[0]&&cl.p[1]===c.p[1]&&cl.p[2]===c.p[2])cell1=cl;
+      if(!cell1)continue;
+      const np=rotVec(c.p,a,s);
+      const nn2=rotN(nn,a,s);
+      const f2=faceOfNormal(nn2);
+      let cell2=null;
+      if(f2)for(const cl of CELLS[f2])if(cl.p[0]===np[0]&&cl.p[1]===np[1]&&cl.p[2]===np[2])cell2=cl;
+      if(!cell2)continue;
+      if(f1===f2&&cell1.r===1&&cell1.c===1)continue;   /* 面心：原地不动，保持为静止点 */
+      movingKeys.add(siteKey(f1,cell1.r,cell1.c));
+      const s1=SITES[siteKey(f1,cell1.r,cell1.c)].p;
+      const s2=SITES[siteKey(f2,cell2.r,cell2.c)].p;
+      if(f1===f2){
+        const ctr=SITES[siteKey(f1,1,1)].p;
+        const a1=Math.atan2(s1[1]-ctr[1],s1[0]-ctr[0]);
+        const a2=Math.atan2(s2[1]-ctr[1],s2[0]-ctr[0]);
+        rots.push({a1,a2,d:0,ctr,
+                   r1:Math.hypot(s1[0]-ctr[0],s1[1]-ctr[1]),
+                   r2:Math.hypot(s2[0]-ctr[0],s2[1]-ctr[1]),color:st.color});
+      }else{
+        const a1=Math.atan2(s1[1]-cc[1],s1[0]-cc[0]);
+        const a2=Math.atan2(s2[1]-cc[1],s2[0]-cc[0]);
+        slides.push({a1,a2,d:0,cc,
+                     r1:Math.hypot(s1[0]-cc[0],s1[1]-cc[1]),
+                     r2:Math.hypot(s2[0]-cc[0],s2[1]-cc[1]),color:st.color});
+      }
+    }
+  }
+  /* 静止点快照（贴纸身份绑定：动画期间绝不改变颜色） */
+  for(const f of FACES){
+    const cols=readFace(f);
+    for(let r=0;r<3;r++)for(let c=0;c<3;c++){
+      if(movingKeys.has(siteKey(f,r,c)))continue;
+      const p=SITES[siteKey(f,r,c)].p;
+      statics.push({x:p[0],y:p[1],color:cols[r][c]});
+    }
+  }
+  /* —— 流动方向 ——
+     一次转动里，同一圆环上的 12 个点朝同一个方向流动（像传送带）。
+     这样任意时刻都不会有两个点相互穿过 —— 若让每个点各走各自的最短弧，
+     则会有 3 个点反向而行、与其他点在中途交叉，看起来就是"点乱跑/错位"。
+     本规则与参考图的转动中帧逐点吻合（滑动 t≈0.25~0.31）；面内自转的
+     8 个点沿各自小圆反向转动（参考图实测 -86°~-94°）。 */
+  const TAU=Math.PI*2;
+  const fwd=x=>{let f=((x.a2-x.a1)%TAU+TAU)%TAU; return f===0?TAU:f;};
+  for(const sl of slides) sl.d=fwd(sl);        /* 12 个滑动点：同向（前向） */
+  for(const rt of rots)   rt.d=fwd(rt)-TAU;    /* 8 个自转点：反向（镜像） */
+  const rk=ringOf(layer);
+  return {slides,rots,statics,cc,ring:rk,activeR:RAD[rk-1],axisName};
+}
+
+/* ---------------- 3. 状态 ---------------- */
+const DEFAULT_SETTINGS={labels:true,neighbors:false,axisLock:true,tol:12,cubeOnly:false,
+  orbitRevH:false,orbitRevV:true,orbitSpeed:1.0,      /* 默认：左右跟手；上下反过来（拖下→看底面） */
+  _v:2};
+const state={
+  camera:{yaw:133*Math.PI/180,pitch:0.60,pdir:1},
+  moveQueue:[], history:[], anim:null, dpr:1,
+  mark:null,                    /* 按住的贴纸 → 圆环上高亮的点 {f,r,c} */
+  settings:Object.assign({},DEFAULT_SETTINGS),
+  marks:null                    /* 邻居提示：同时高亮的多个点 */
+};
+const SETTINGS_VERSION=3;
+try{
+  const saved=JSON.parse(localStorage.getItem('gcSettings')||'null');
+  if(saved){
+    Object.assign(state.settings,saved);
+    if((saved._v||0)<SETTINGS_VERSION){
+      /* v3 迁移：方向统一恢复为"确认过的默认"——
+         左右：拖左→魔方向左（跟手）；上下：拖下→看到底面。
+         旧实验里若打开过"反向"开关，这里一并纠正。 */
+      state.settings.orbitRevH=false;
+      state.settings.orbitRevV=true;
+      state.settings.orbitSpeed=state.settings.orbitSpeed||1.0;
+      state.settings._v=SETTINGS_VERSION;
+      try{localStorage.setItem('gcSettings',JSON.stringify(state.settings));}catch(_){}
+    }
+  }
+}catch(_){}
+/* 启动界面一律"带环"：不恢复上次的"只显示魔方"状态（避免首屏布局与画布测量错位） */
+state.settings.cubeOnly=false;
+function saveSettings(){
+  state.settings._v=SETTINGS_VERSION;
+  try{localStorage.setItem('gcSettings',JSON.stringify(state.settings));}catch(_){}
+}
+const ease=t=>t*t*(3-2*t);
+
+/* ---------- 3a. 圆环示意图 ---------- */
+const dcv=document.getElementById('diagram'), dctx=dcv.getContext('2d');
+let DW=0,DH=0,dScale=1,dOx=0,dOy=0,dotR=3;
+function layoutDiagram(){
+  const r=dcv.getBoundingClientRect();
+  dcv.width=Math.max(2,Math.round(r.width*state.dpr));
+  dcv.height=Math.max(2,Math.round(r.height*state.dpr));
+  DW=r.width;DH=r.height;
+  const bx0=-103,bx1=219,by0=-203,by1=103,pad=6;
+  let s=Math.min((DW-2*pad)/(bx1-bx0),(DH-2*pad)/(by1-by0));
+  if(!(s>0.01))s=0.0001;                       /* 尺寸为 0（隐藏时）不留负数 */
+  dScale=s;dOx=DW/2-((bx0+bx1)/2)*s;dOy=DH/2-((by0+by1)/2)*s;
+  dotR=Math.max(2.4,2.7*dScale);
+}
+const d2p=p=>[dOx+p[0]*dScale,dOy+p[1]*dScale];
+function drawDotAt(ctx,x,y,color,rr){
+  const hex=COLORHEX[FACECOLOR[color]];
+  ctx.beginPath();ctx.arc(x,y,rr,0,Math.PI*2);
+  if(!hex){ctx.fillStyle='#b9b9b9';ctx.fill();return;}
+  ctx.fillStyle=hex;ctx.fill();
+  if(FACECOLOR[color]==='white'){
+    ctx.lineWidth=Math.max(1,rr*0.30);ctx.strokeStyle='#c9c7bf';ctx.stroke();
+  }
+}
+function drawDiagram(anim,t){
+  const ctx=dctx;
+  /* 「只显示魔方」时圆环画布尺寸为 0：直接跳过，避免无效绘制/报错 */
+  if(!(dScale>0.01)||DW<2||DH<2)return;
+  ctx.setTransform(state.dpr,0,0,state.dpr,0,0);
+  ctx.clearRect(0,0,DW,DH);
+  const lw=Math.max(1.05,0.42*dScale);
+  for(const ax of ['x','y','z']){
+    const c=d2p(CENT[ax]);
+    for(let k=1;k<=3;k++){
+      ctx.beginPath();ctx.arc(c[0],c[1],RAD[k-1]*dScale,0,Math.PI*2);
+      ctx.lineWidth=lw;ctx.strokeStyle='#d8d5cd';ctx.stroke();
+    }
+  }
+  /* 圆心旁标注坐标轴：x 左右 / y 上下 / z 前后（对应魔方三条轴） */
+  if(state.settings.labels){
+    ctx.fillStyle='rgba(168,158,138,0.85)';
+    ctx.font='600 '+Math.max(9,Math.round(dotR*2.4))+'px Georgia,"Times New Roman",serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    for(const [nm,key] of [['x','x'],['y','y'],['z','z']]){
+      const p=d2p(CENT[key]);
+      ctx.fillText(nm,p[0],p[1]);
+    }
+  }
+  if(anim&&anim.data.slides.length){
+    const A0=anim.data;
+    const c=d2p(A0.cc);
+    ctx.beginPath();ctx.arc(c[0],c[1],A0.activeR*dScale,0,Math.PI*2);
+    ctx.lineWidth=Math.max(3.2,1.25*dScale);ctx.strokeStyle='#ec8f2a';ctx.stroke();
+    /* 流动方向箭头：指示这次滑动沿圆环行进的方向（10 个小箭头） */
+    let sF=0;for(const sl of A0.slides)sF+=Math.sin(sl.d);
+    const dir=sF>=0?1:-1;
+    const ph=dir*ease(Math.min(1,t))*0.45;
+    const ar=Math.max(3,dotR*1.05), R2=A0.activeR*dScale;
+    ctx.fillStyle='rgba(236,143,42,0.5)';
+    for(let k=0;k<10;k++){
+      const th=k*(Math.PI*2/10)+ph;
+      const x=c[0]+R2*Math.cos(th), y=c[1]+R2*Math.sin(th);
+      const tx=-Math.sin(th)*dir, ty=Math.cos(th)*dir;
+      const nx=-ty, ny=tx;
+      ctx.beginPath();
+      ctx.moveTo(x+tx*ar, y+ty*ar);
+      ctx.lineTo(x-tx*ar*0.5+nx*ar*0.78, y-ty*ar*0.5+ny*ar*0.78);
+      ctx.lineTo(x-tx*ar*0.5-nx*ar*0.78, y-ty*ar*0.5-ny*ar*0.78);
+      ctx.closePath();ctx.fill();
+    }
+  }
+  if(anim&&t<1){
+    const A=anim.data,te=ease(t);
+    for(const s2 of A.statics){
+      const p=d2p([s2.x,s2.y]);
+      drawDotAt(ctx,p[0],p[1],s2.color,dotR);
+    }
+    for(const sl of A.slides){
+      const ang=sl.a1+sl.d*te, rr=sl.r1+(sl.r2-sl.r1)*te;
+      const p=d2p([sl.cc[0]+rr*Math.cos(ang), sl.cc[1]+rr*Math.sin(ang)]);
+      drawDotAt(ctx,p[0],p[1],sl.color,dotR);
+    }
+    for(const rt of A.rots){
+      const ang=rt.a1+rt.d*te, rr=rt.r1+(rt.r2-rt.r1)*te;
+      const p=d2p([rt.ctr[0]+rr*Math.cos(ang), rt.ctr[1]+rr*Math.sin(ang)]);
+      drawDotAt(ctx,p[0],p[1],rt.color,dotR);
+    }
+  }else{
+    for(const f of FACES){
+      const cols=readFace(f);
+      for(let r=0;r<3;r++)for(let c=0;c<3;c++){
+        const p=d2p(SITES[siteKey(f,r,c)].p);
+        drawDotAt(ctx,p[0],p[1],cols[r][c],dotR);
+      }
+    }
+    /* 联动高亮：按住某张贴纸时，圆环上点亮它对应的那个点（并圈出它所在面的 9 个点）；
+       「邻居」开关打开时，再圈出与它相邻的 4 张（同面 2 张 + 跨棱 2 张），并用细线连到它 */
+    if(!anim&&state.mark){
+      const mk=state.mark;
+      ctx.strokeStyle='rgba(236,143,42,0.32)';
+      ctx.lineWidth=Math.max(1,dotR*0.4);
+      for(let r=0;r<3;r++)for(let c=0;c<3;c++){
+        const p=d2p(SITES[siteKey(mk.f,r,c)].p);
+        ctx.beginPath();ctx.arc(p[0],p[1],dotR*1.8,0,Math.PI*2);ctx.stroke();
+      }
+      if(state.settings.neighbors&&state.marks){
+        const self=d2p(SITES[siteKey(mk.f,mk.r,mk.c)].p);
+        ctx.strokeStyle='rgba(60,120,180,0.85)';
+        ctx.lineWidth=Math.max(1.2,dotR*0.42);
+        for(const nb of state.marks){
+          if(nb.f===mk.f&&nb.r===mk.r&&nb.c===mk.c)continue;
+          const p=d2p(SITES[siteKey(nb.f,nb.r,nb.c)].p);
+          ctx.beginPath();ctx.moveTo(self[0],self[1]);ctx.lineTo(p[0],p[1]);ctx.stroke();
+          ctx.beginPath();ctx.arc(p[0],p[1],dotR*2.0,0,Math.PI*2);ctx.stroke();
+        }
+      }
+      const p=d2p(SITES[siteKey(mk.f,mk.r,mk.c)].p);
+      ctx.strokeStyle='#ec8f2a';
+      ctx.lineWidth=Math.max(1.6,dotR*0.6);
+      ctx.beginPath();ctx.arc(p[0],p[1],dotR*2.4,0,Math.PI*2);ctx.stroke();
+    }
+  }
+}
+
+/* ---------- 3b. 立体魔方 ---------- */
+const ccv=document.getElementById('cube'), cctx=ccv.getContext('2d');
+let CW=0,CH=0;
+/* ---- 视角：增量式球面旋转（像滚球，连续、无极点换向） ----
+   旧写法用 yaw/pitch 两个角，越过极点时必须"翻转+加 180°"，
+   造成用户看到的"过顶点后直接换向"。现在改为直接维护
+   「相机朝向 dir + 屏幕右向 right」两个向量，每次拖动做一次小旋转：
+     · 水平拖动 → 绕【屏幕竖直轴】转（内容随手左右走）
+     · 竖直拖动 → 绕【屏幕水平轴】转（默认：拖下→看底面）
+   这样可以连续滚过上下极点、转满 360°，全程方向一致，不会突然换向。 */
+function camInit(){                       /* 由 yaw/pitch 生成 dir/right（初始视角/复位用） */
+  const c=state.camera;
+  const yaw=(c.yaw===undefined)?133*Math.PI/180:c.yaw;
+  const pitch=(c.pitch===undefined)?0.60:c.pitch;
+  const cp=Math.cos(pitch), sp=Math.sin(pitch);
+  const d=[cp*Math.cos(yaw),sp,cp*Math.sin(yaw)];
+  let r=[d[2],0,-d[0]];
+  let l=Math.hypot(r[0],r[2]);
+  if(l<1e-6){r=[1,0,0];l=1;}
+  c.dir=d; c.right=[r[0]/l,0,r[2]/l];
+}
+function rotVecAxis(v,axis,ang){          /* 罗德里格旋转 */
+  const c=Math.cos(ang),s=Math.sin(ang);
+  const [x,y,z]=v,[kx,ky,kz]=axis;
+  const dot=kx*x+ky*y+kz*z;
+  return [x*c+(ky*z-kz*y)*s+kx*dot*(1-c),
+          y*c+(kz*x-kx*z)*s+ky*dot*(1-c),
+          z*c+(kx*y-ky*x)*s+kz*dot*(1-c)];
+}
+function camBasis(){
+  const c=state.camera;
+  if(!c.dir||!c.right)camInit();
+  const dir=c.dir, sr=c.right;
+  const su=[dir[1]*sr[2]-dir[2]*sr[1],
+            dir[2]*sr[0]-dir[0]*sr[2],
+            dir[0]*sr[1]-dir[1]*sr[0]];
+  /* 顺带把 yaw/pitch 更新出来（供面板显示/测试读取；不影响旋转本身） */
+  c.pitch=Math.asin(Math.max(-1,Math.min(1,dir[1])));
+  c.yaw=Math.atan2(dir[2],dir[0]);
+  return {camDir:dir,sr,su};
+}
+function orbitBy(dx,dy){
+  const c=state.camera, st=state.settings||{};
+  if(!c.dir||!c.right)camInit();
+  /* 跟手比例：拖 d 像素 → 转 d/R 弧度（R = 魔方在屏幕上的半宽像素）
+     kH / kV 分别标定：以"离屏幕中心最近的贴纸"为准，与上一版实测手感对齐
+     （A/B 实测：横向 1.46、竖向 2.04，与旧版一致） */
+  const R=Math.max(40,state.viewScale||120);
+  const spd=(st.orbitSpeed===undefined?1:st.orbitSpeed);
+  const kH=(0.75/R)*spd;
+  const kV=(1.02/R)*spd;
+  const sH=(st.orbitRevH?-1:1);
+  const sV=(st.orbitRevV?1:-1);
+  let d=c.dir.slice(), r=c.right.slice();
+  const su=[d[1]*r[2]-d[2]*r[1], d[2]*r[0]-d[0]*r[2], d[0]*r[1]-d[1]*r[0]];
+  /* ① 水平：绕屏幕竖直轴 */
+  const a=-sH*dx*kH;
+  d=rotVecAxis(d,su,a); r=rotVecAxis(r,su,a);
+  /* ② 竖直：绕屏幕水平轴（用旋转后的 right） */
+  const rr=[d[1]*r[2]-d[2]*r[1], d[2]*r[0]-d[0]*r[2], d[0]*r[1]-d[1]*r[0]];
+  const b=sV*dy*kV;
+  d=rotVecAxis(d,r,b);
+  /* ③ 正交化 + 归一化（防长期累积误差） */
+  let dl=Math.hypot(d[0],d[1],d[2])||1; d=[d[0]/dl,d[1]/dl,d[2]/dl];
+  let dp=r[0]*d[0]+r[1]*d[1]+r[2]*d[2];
+  r=[r[0]-d[0]*dp, r[1]-d[1]*dp, r[2]-d[2]*dp];
+  let rl=Math.hypot(r[0],r[1],r[2])||1; r=[r[0]/rl,r[1]/rl,r[2]/rl];
+  c.dir=d; c.right=r;
+  camBasis();
+}
+const AXISV=[[1,0,0],[0,1,0],[0,0,1]];
+/* 参考图实测：贴纸 ≈ 格子 84%，白缝(含块边缘) ≈ 16%，且四周均匀、不做径向外推 */
+const CUBIE_HS=0.475;      /* 小方块半边长：整块 0.95 -> 均匀 5% 缝隙 */
+const STICKER_K=0.885;     /* 贴纸占面片比例 -> 贴纸 ≈ 0.84 格子 */
+/* 构建小方块。返回 26 个块，每块带自己的可见面：
+   排序用“块中心深度”，比“面片中心深度”稳健得多 —— 转动中的层不再穿透。 */
+function buildCubeFaces(anim,t){
+  const te=(anim&&t<1)?ease(t):1;
+  const ang=anim?(Math.PI/2)*anim.sigma*te:0;
+  const a=anim?anim.axis:-1;
+  const cubies=[];
+  for(const c of CUBIES){
+    const inL=anim&&c.p[a]===anim.layer;
+    const pos=inL?rotPartial(c.p,a,ang):c.p.slice();
+    /* 均匀缩放：块中心就是格点，不做径向外推 —— 转动时整层是完整的一板 */
+    const base=[pos[0]-1,pos[1]-1,pos[2]-1];
+    const faces=[];
+    for(let axis=0;axis<3;axis++){
+      for(const sgn of [1,-1]){
+        const nH=[0,0,0];nH[axis]=sgn;
+        const nW=inL?rotPartialDir(matVec(c.M,nH),a,ang):matVec(c.M,nH);
+        let sticker=null;
+        for(const st of c.stickers){
+          if(st.n[0]===nH[0]&&st.n[1]===nH[1]&&st.n[2]===nH[2]){sticker=st.color;break;}
+        }
+        const e1=AXISV[(axis+1)%3], e2=AXISV[(axis+2)%3];
+        const r1=inL?rotPartialDir(matVec(c.M,e1),a,ang):matVec(c.M,e1);
+        const r2=inL?rotPartialDir(matVec(c.M,e2),a,ang):matVec(c.M,e2);
+        const fctr=[base[0]+nW[0]*CUBIE_HS,base[1]+nW[1]*CUBIE_HS,base[2]+nW[2]*CUBIE_HS];
+        const quad=[];
+        for(const [u1,u2] of [[-1,-1],[1,-1],[1,1],[-1,1]]){
+          quad.push([fctr[0]+(r1[0]*u1+r2[0]*u2)*CUBIE_HS,
+                     fctr[1]+(r1[1]*u1+r2[1]*u2)*CUBIE_HS,
+                     fctr[2]+(r1[2]*u1+r2[2]*u2)*CUBIE_HS]);
+        }
+        faces.push({quad,nW,sticker,fctr});
+      }
+    }
+    cubies.push({ctr:base,faces,cubie:c});
+  }
+  return {cubies};
+}
+/* 视图参数（投影 + 自适应缩放）：drawCube 与命中检测共用，保证一致 */
+function viewParams(cubies,B){
+  /* 顺带记录屏幕比例（像素/世界单位），供视角旋转做 1:1 跟手 */
+
+  let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
+  const projRaw=q=>[q[0]*B.sr[0]+q[1]*B.sr[1]+q[2]*B.sr[2],
+                    -(q[0]*B.su[0]+q[1]*B.su[1]+q[2]*B.su[2])];
+  for(const cu of cubies){
+    for(const F of cu.faces){
+      const nw=F.nW;
+      if(nw[0]*B.camDir[0]+nw[1]*B.camDir[1]+nw[2]*B.camDir[2]<0.02)continue;
+      for(const q of F.quad){
+        const s=projRaw(q);
+        if(s[0]<minx)minx=s[0]; if(s[0]>maxx)maxx=s[0];
+        if(s[1]<miny)miny=s[1]; if(s[1]>maxy)maxy=s[1];
+      }
+    }
+  }
+  if(minx>maxx){minx=-1;maxx=1;miny=-1;maxy=1;}
+  /* 留出边距：既给"拖空白转视角"留出可操作区域，也让魔方不贴边 */
+  const pad=Math.max(22,Math.min(CW,CH)*0.10);   /* 手指友好的留白 */
+  const S=Math.min((CW-2*pad)/Math.max(0.001,maxx-minx),(CH-2*pad)/Math.max(0.001,maxy-miny));
+  const ox=CW/2-S*(minx+maxx)/2, oy=CH/2-S*(miny+maxy)/2;
+  const P=q=>{const s=projRaw(q);return [ox+s[0]*S, oy+s[1]*S];};
+  state.viewScale=S;                      /* 1:1 跟手用 */
+  return {S,P,projRaw};
+}
+function drawCube(anim,t){
+  const ctx=cctx;
+  ctx.setTransform(state.dpr,0,0,state.dpr,0,0);
+  ctx.clearRect(0,0,CW,CH);
+  const {cubies}=buildCubeFaces(anim,t);
+  const B=camBasis();
+  const {S,P}=viewParams(cubies,B);
+  /* 画家算法：按“小方块中心深度”从远到近画（块与块互不相交，稳健） */
+  const order=cubies.map(cu=>({cu,depth:cu.ctr[0]*B.camDir[0]+cu.ctr[1]*B.camDir[1]+cu.ctr[2]*B.camDir[2]}))
+                    .sort((p,q)=>p.depth-q.depth);
+  for(const {cu} of order){
+    /* 同一块内：先画朝向背面的（其自己的可见面互不重叠，顺序影响很小） */
+    const fs=cu.faces.slice().sort((p,q)=>
+      (p.nW[0]*B.camDir[0]+p.nW[1]*B.camDir[1]+p.nW[2]*B.camDir[2]) -
+      (q.nW[0]*B.camDir[0]+q.nW[1]*B.camDir[1]+q.nW[2]*B.camDir[2]));
+    for(const F of fs){
+      const facing=F.nW[0]*B.camDir[0]+F.nW[1]*B.camDir[1]+F.nW[2]*B.camDir[2];
+      if(facing<0.02)continue;
+      const q=F.quad.map(P);
+      /* 塑料外壳 */
+      ctx.beginPath();ctx.moveTo(q[0][0],q[0][1]);
+      for(let i=1;i<4;i++)ctx.lineTo(q[i][0],q[i][1]);
+      ctx.closePath();
+      ctx.fillStyle='#fbfaf6';ctx.fill();
+      ctx.lineWidth=1;ctx.strokeStyle='rgba(150,140,120,0.25)';ctx.stroke();
+      /* 贴纸（内缩，白边） */
+      if(F.sticker){
+        let cx=0,cy=0;for(const p of q){cx+=p[0];cy+=p[1];}cx/=4;cy/=4;
+        const k=STICKER_K;
+        ctx.beginPath();
+        for(let i=0;i<4;i++){
+          const x=cx+(q[i][0]-cx)*k, y=cy+(q[i][1]-cy)*k;
+          i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+        }
+        ctx.closePath();
+        const isWhite=(FACECOLOR[F.sticker]==='white');
+        ctx.fillStyle=COLORHEX[FACECOLOR[F.sticker]];
+        ctx.fill();
+        ctx.lineWidth=Math.max(1.0,0.02*S);
+        /* 白贴纸用浅灰描边：不然拖到"看底面"时白面会和浅色背景糊在一起看不见 */
+        ctx.strokeStyle=isWhite?'#cfccc4':'#ffffff';
+        ctx.stroke();
+      }
+    }
+  }
+  drawDragOverlay(S,B);
+}
+
+/* 拖动时的视觉反馈：
+   ① 锁定的拖动轴（横/竖）用一条淡线提示
+   ② 将要转动的整层叠加一层暖色，指哪转哪（松手才真正转） */
+function drawDragOverlay(S,B){
+  if(!drag||drag.mode!=='sticker')return;
+  const ctx=cctx;
+  const P=q=>[CW/2+(q[0]*B.sr[0]+q[1]*B.sr[1]+q[2]*B.sr[2])*S,
+              CH/2-(q[0]*B.su[0]+q[1]*B.su[1]+q[2]*B.su[2])*S];
+  /* ① 轴提示线 */
+  if(drag.axis){
+    ctx.save();
+    ctx.strokeStyle='rgba(236,143,42,0.55)';
+    ctx.lineWidth=2;ctx.setLineDash([6,6]);
+    ctx.beginPath();
+    if(drag.axis==='h'){ctx.moveTo(0,drag.y0);ctx.lineTo(CW,drag.y0);}
+    else{ctx.moveTo(drag.x0,0);ctx.lineTo(drag.x0,CH);}
+    ctx.stroke();ctx.restore();
+  }
+  /* ② 将要转动的层：叠加暖色 */
+  if(!drag.dir)return;
+  const {ax,layer}=drag.dir;
+  const {cubies}=buildCubeFaces(state.anim,state.anim?state.anim.t:1);
+  ctx.save();
+  ctx.fillStyle='rgba(236,143,42,0.20)';
+  ctx.strokeStyle='rgba(236,143,42,0.85)';
+  ctx.lineWidth=2;
+  for(const cu of cubies){
+    const g=cu.ctr;
+    if(Math.round(g[ax]+1)!==layer)continue;
+    for(const F of cu.faces){
+      const facing=F.nW[0]*B.camDir[0]+F.nW[1]*B.camDir[1]+F.nW[2]*B.camDir[2];
+      if(facing<0.05)continue;
+      const q=F.quad.map(P);
+      ctx.beginPath();ctx.moveTo(q[0][0],q[0][1]);
+      for(let i=1;i<4;i++)ctx.lineTo(q[i][0],q[i][1]);
+      ctx.closePath();ctx.fill();ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+function layoutCube(){
+  const r=ccv.getBoundingClientRect();
+  ccv.width=Math.max(2,Math.round(r.width*state.dpr));
+  ccv.height=Math.max(2,Math.round(r.height*state.dpr));
+  CW=r.width;CH=r.height;
+}
+
+/* ---------- 3c. 动画主循环 ---------- */
+let lastT=0;
+let frameMsEwma=16.7;          /* 帧耗平滑值：用于让低端机也拿到足够的动画帧 */
+const MIN_FRAMES=7;            /* 一步动画至少渲染 7 帧：任何帧率下点都是“滑”过去 */
+function frame(now){
+  let dt=now-lastT;lastT=now;
+  if(!(dt>0))dt=0;
+  if(dt>0&&dt<400)frameMsEwma=frameMsEwma*0.8+dt*0.2;
+  if(state.anim){
+    const an=state.anim;
+    const step=Math.min(dt,an.dur/MIN_FRAMES);   /* 卡顿/切后台也不会一步跳完 */
+    an.t=Math.min(1,an.t+step/an.dur);
+    if(an.t>=1){
+      applyMove(an.axis,an.layer,an.sigma);
+      if(!an.noRecord){
+        state.history.push({axis:an.axis,layer:an.layer,sigma:an.sigma});
+        if(state.history.length>500)state.history.shift();
+      }
+      state.anim=null;
+      selfCheck();
+      drawDiagram(null,1);drawCube(null,1);
+      pumpQueue();
+    }else{
+      drawDiagram(an,an.t);
+      drawCube(an,an.t);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+let lastMoveInfo=null;
+/* 一步动画至少给 7 帧：低端机/卡顿时也不会“一跳到位”（点是滑过去的） */
+function moveDuration(base){return Math.max(base||380, 7*frameMsEwma);}
+function pumpQueue(){
+  if(state.anim)return;
+  if(state.moveQueue.length){
+    const mv=state.moveQueue.shift();
+    state.mark=null;                       /* 开始转动时收起联动高亮 */
+    const data=computeMoveData(mv.axis,mv.layer,mv.sigma);
+    lastMoveInfo={axis:mv.axis,layer:mv.layer,sigma:mv.sigma,
+                  nSlide:data.slides.length,nRot:data.rots.length,ring:data.ring};
+    state.anim={axis:mv.axis,layer:mv.layer,sigma:mv.sigma,t:0,
+                dur:moveDuration(mv.dur),data,noRecord:!!mv.noRecord};
+    updateButtons();
+  }else{
+    updateButtons();
+  }
+}
+function queueMove(axis,layer,sigma,dur,noRecord){
+  state.moveQueue.push({axis,layer,sigma,dur,noRecord});pumpQueue();
+}
+
+/* ---------- 4. 交互 ---------- */
+const canvasPos=(e,cv)=>{const r=cv.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top];};
+let drag=null;
+let pickCache=null;
+function screenFaces(){
+  /* 与 drawCube 完全相同的投影与排序，用于命中检测 */
+  const {cubies}=buildCubeFaces(state.anim,state.anim?state.anim.t:1);
+  const B=camBasis();
+  const {P}=viewParams(cubies,B);
+  const list=[];
+  for(const cu of cubies){
+    const depth=cu.ctr[0]*B.camDir[0]+cu.ctr[1]*B.camDir[1]+cu.ctr[2]*B.camDir[2];
+    const fs=[];
+    for(const F of cu.faces){
+      const facing=F.nW[0]*B.camDir[0]+F.nW[1]*B.camDir[1]+F.nW[2]*B.camDir[2];
+      if(facing<0.02)continue;
+      fs.push({F,quad:F.quad.map(P),facing});
+    }
+    fs.sort((p,q)=>p.facing-q.facing);
+    list.push({cu,depth,faces:fs});
+  }
+  list.sort((p,q)=>p.depth-q.depth);    /* 远 -> 近，便于反向命中 */
+  return list;
+}
+/* 点到四边形的最短距离（在外面时=到边界的距离，在里面时=0） */
+function distToQuad(x,y,q){
+  if(pointInQuad(x,y,q))return 0;
+  let best=1e9;
+  for(let i=0;i<4;i++){
+    const a=q[i],b=q[(i+1)%4];
+    const vx=b[0]-a[0],vy=b[1]-a[1];
+    const wx=x-a[0],wy=y-a[1];
+    const L=vx*vx+vy*vy||1e-9;
+    let t=(wx*vx+wy*vy)/L;
+    t=Math.max(0,Math.min(1,t));
+    const dx=x-(a[0]+vx*t),dy=y-(a[1]+vy*t);
+    best=Math.min(best,Math.hypot(dx,dy));
+  }
+  return best;
+}
+/* 命中检测（移动端宽容版）：
+   先精确命中；否则取「离手指最近的贴纸」，只要在 TOL 像素内就算抓住。
+   手指粗、贴纸小时也不会点空。 */
+const PICK_TOL=14;
+function pickSticker(px,py){
+  const list=screenFaces();
+  let near=null,nearD=1e9;
+  for(let i=list.length-1;i>=0;i--){          /* 最近的块 -> 最远 */
+    const it=list[i];
+    for(let k=it.faces.length-1;k>=0;k--){
+      const F=it.faces[k].F;
+      if(!F.sticker)continue;
+      const q=it.faces[k].quad;
+      if(pointInQuad(px,py,q))return {face:F.sticker, nW:F.nW, ctr:F.fctr, cubie:it.cu.cubie};
+      const d=distToQuad(px,py,q);
+      if(d<nearD){nearD=d;near={face:F.sticker, nW:F.nW, ctr:F.fctr, cubie:it.cu.cubie};}
+    }
+  }
+  return (near&&nearD<=PICK_TOL)?near:null;
+}
+/* 命中的贴纸 → 它在圆环上对应的格子 {f,r,c}（用于联动高亮） */
+function cellOfHit(hit){
+  if(!hit||!hit.cubie)return null;
+  const f=faceOfNormal(hit.nW);
+  if(!f)return null;
+  const p=hit.cubie.p;
+  for(const cl of CELLS[f])if(cl.p[0]===p[0]&&cl.p[1]===p[1]&&cl.p[2]===p[2])return {f,r:cl.r,c:cl.c};
+  return null;
+}
+function pointInQuad(x,y,q){
+  let inside=false;
+  for(let i=0,j=3;i<4;j=i++){
+    const xi=q[i][0],yi=q[i][1],xj=q[j][0],yj=q[j][1];
+    if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))inside=!inside;
+  }
+  return inside;
+}
+/* —— 拖动识别（移动端优化版）——
+   ① 按住不放：抓着的贴纸 + 它所在面高亮（给手感反馈）
+   ② 移动超过阈值：立即锁定一根拖动轴（横 or 竖），只认这条轴上的位移；
+      并且跟随手指实时预览该层会怎么转（不会误触发别的层）
+   ③ 松手：若预览方向已确定就执行这一转，否则取消（不误转）
+   阈值可从 #btnTune 面板调整（默认 8~12px，手机上很轻）。 */
+const TH={start:9, lock:5};
+/* 与某张贴纸相邻的 4 张（同面 2 张 + 跨棱 2 张），用于「邻居提示」 */
+const FACE_NORM={U:[0,1,0],D:[0,-1,0],F:[0,0,1],B:[0,0,-1],R:[1,0,0],L:[-1,0,0]};
+function faceCellPos(f,r,c){
+  if(f==='U')return [c,2,r]; if(f==='D')return [c,0,2-r];
+  if(f==='F')return [c,2-r,2]; if(f==='B')return [2-c,2-r,0];
+  if(f==='R')return [2,2-r,2-c]; return [0,2-r,c];
+}
+function findCell(f,p){
+  for(let r=0;r<3;r++)for(let c=0;c<3;c++){
+    const g=faceCellPos(f,r,c);
+    if(g[0]===p[0]&&g[1]===p[1]&&g[2]===p[2])return {f,r,c};
+  }
+  return null;
+}
+function neighborsOf(cell){
+  const {f,r,c}=cell;
+  const p=faceCellPos(f,r,c);
+  const a=FACE_NORM[f].findIndex(v=>v!==0);
+  const others=[0,1,2].filter(i=>i!==a);
+  const out=[];
+  /* ① 同面相邻：在面内两个方向上各走一格 */
+  for(const oi of others){
+    for(const st of [1,-1]){
+      const q=p.slice(); q[oi]+=st;
+      if(q[oi]<0||q[oi]>2)continue;
+      const hit=findCell(f,q);
+      if(hit)out.push(hit);
+    }
+  }
+  /* ② 跨棱相邻：当该贴在棱上（面内某坐标为 0 或 2）时，翻到相邻面 */
+  for(const oi of others){
+    if(p[oi]!==0&&p[oi]!==2)continue;
+    const sgn=p[oi]===2?1:-1;
+    let f2=null;
+    for(const ff of ['U','D','F','B','R','L']){
+      const na=FACE_NORM[ff].findIndex(v=>v!==0);
+      if(na===oi&&FACE_NORM[ff][na]===sgn)f2=ff;
+    }
+    if(!f2)continue;
+    const hit=findCell(f2,p);
+    if(hit)out.push(hit);
+  }
+  return out;
+}
+const activePointers=new Set();          /* 用于识别双指（= 转视角） */
+ccv.addEventListener('pointerdown',e=>{
+  try{ccv.setPointerCapture(e.pointerId);}catch(_){}
+  activePointers.add(e.pointerId);
+  const [x,y]=canvasPos(e,ccv);
+  if(activePointers.size>=2){
+    /* 第二根手指落下 → 立刻切换为"转视角"，并取消可能已开始的转层 */
+    drag={mode:'orbit',x0:x,y0:y,yaw0:state.camera.yaw,pitch0:state.camera.pitch,lx:x,ly:y};
+    state.mark=null;state.marks=null;
+    if(!state.anim)drawDiagram(null,1);
+    updateButtons();
+    return;
+  }
+  const hit=state.anim?null:pickSticker(x,y);
+  const mk=hit?cellOfHit(hit):null;
+  state.mark=mk;                           /* 联动高亮：按住贴纸 → 点亮圆环上对应的点 */
+  state.marks=(mk&&state.settings.neighbors)?neighborsOf(mk):null;
+  if(!state.anim)drawDiagram(null,1);
+  if(hit)drag={mode:'sticker',x0:x,y0:y,hit,fired:false,axis:null,dir:null,lx:x,ly:y,dx:0,dy:0};
+  else drag={mode:'orbit',x0:x,y0:y,yaw0:state.camera.yaw,pitch0:state.camera.pitch,lx:x,ly:y};
+  updateButtons();
+});
+ccv.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  const [x,y]=canvasPos(e,ccv);
+  if(drag.mode==='orbit'){
+    /* 统一用"增量"驱动：跟手、不跳，且可连续越过极点转满 360° */
+    const dx=x-(drag.lx===undefined?x:drag.lx), dy=y-(drag.ly===undefined?y:drag.ly);
+    drag.lx=x;drag.ly=y;
+    orbitBy(dx,dy);
+    drawCube(state.anim,state.anim?state.anim.t:1);
+    return;
+  }
+  drag.lx=x;drag.ly=y;
+  drag.dx=x-drag.x0;drag.dy=y-drag.y0;
+  const dist=Math.hypot(drag.dx,drag.dy);
+  /* 锁定轴：先用一个小阈值判定，超过 2.2 倍阈值后彻底锁死（防止最初抖动选错轴） */
+  if(drag.axis===null){
+    if(dist<TH.start)return;
+    drag.axis=Math.abs(drag.dx)>=Math.abs(drag.dy)?'h':'v';
+    drag.locked=false;
+  }
+  if(!state.settings.axisLock){
+    drag.axis=Math.abs(drag.dx)>=Math.abs(drag.dy)?'h':'v';   /* 关闭时实时跟随方向 */
+  }else if(!drag.locked){
+    if(dist<TH.start*2.2){
+      drag.axis=Math.abs(drag.dx)>=Math.abs(drag.dy)?'h':'v'; /* 仍在犹豫期，允许改 */
+    }else{
+      drag.locked=true;                                       /* 锁死 */
+    }
+  }
+  if(dist<TH.lock){drag.dir=null;drawCube(state.anim,state.anim?state.anim.t:1);return;}
+  /* 按锁定轴的方向选择该层怎么转（用引擎自校验，保证"贴纸跟着手指走"） */
+  const cand=pickMoveByDrag(drag.hit, drag.axis==='h'?drag.dx:0, drag.axis==='h'?0:drag.dy);
+  drag.dir=cand;
+  drawCube(state.anim,state.anim?state.anim.t:1);
+});
+function endPointer(e){
+  if(e&&e.pointerId!==undefined)activePointers.delete(e.pointerId);
+  const d=drag;drag=null;
+  state.marks=null;
+  if(state.mark){state.mark=null;if(!state.anim)drawDiagram(null,1);}
+  if(d&&d.mode==='sticker'&&d.dir){
+    queueMove(d.dir.ax,d.dir.layer,d.dir.sg);
+  }else{
+    drawCube(state.anim,state.anim?state.anim.t:1);
+  }
+  updateButtons();
+}
+ccv.addEventListener('pointerup',endPointer);
+ccv.addEventListener('pointercancel',endPointer);
+/* 拖动贴纸 -> 该层怎么转（纯计算，不产生副作用）
+   规则（最直观、且与坐标系/旋向约定无关）：
+   在 4 个候选（2 根转轴 × 2 个转向）里，用引擎自己的旋转函数把
+   被抓住的那张贴纸的小角度位移投到屏幕上，选“与手指方向最一致”的那个。*/
+function pickMoveByDrag(hit,dx,dy){
+  if(!hit)return null;
+  const B=camBasis();
+  const nW=hit.nW;
+  const axN=nW.findIndex(v=>Math.abs(v)>0.5);      /* 面法向所在轴：不能作为转轴 */
+  const p0=[hit.ctr[0],hit.ctr[1],hit.ctr[2]];
+  const eps=(Math.PI/180)*4;
+  let best=null;
+  for(const ax of [0,1,2]){
+    if(ax===axN)continue;
+    for(const sg of [1,-1]){
+      const p1=rotPartial([p0[0]+1,p0[1]+1,p0[2]+1],ax,eps*sg).map(v=>v-1);
+      const d=[p1[0]-p0[0],p1[1]-p0[1],p1[2]-p0[2]];
+      const sx=d[0]*B.sr[0]+d[1]*B.sr[1]+d[2]*B.sr[2];
+      const sy=-(d[0]*B.su[0]+d[1]*B.su[1]+d[2]*B.su[2]);
+      const len=Math.hypot(sx,sy)||1e-9;
+      const sc=(sx*dx+sy*dy)/len;
+      if(!best||sc>best.sc)best={ax,sg,sc};
+    }
+  }
+  /* 层号 = 被点中的那个小方块在该轴上的坐标（直接取对象，避免坐标换算误差） */
+  let layer;
+  if(hit.cubie)layer=hit.cubie.p[best.ax];
+  else layer=Math.round(hit.ctr[best.ax]-nW[best.ax]*0.5+1);
+  return {ax:best.ax,sg:best.sg,layer,score:best.sc};
+}
+/* 立即转（给键盘/按钮用） */
+function fireDragMove(hit,dx,dy){
+  if(state.anim)return;
+  const mv=pickMoveByDrag(hit,dx,dy);
+  if(mv)queueMove(mv.ax,mv.layer,mv.sg);
+}
+
+/* ---------- 4b. 一致性自检 ----------
+   每步转动结束后检查：
+   ① 26 个小方块恰好占据 3×3×3 除中心外的 26 个格；
+   ② 每个面 9 格都能读到贴纸颜色，且六色各 9 个；
+   ③ 圆环即将绘制的 54 个点 = 面读数，位置在格点上。
+   任何一条不满足，就会在 ⓘ 面板里留下记录（便于定位偶发问题）。 */
+const selfcheck={runs:0,fails:0,last:'—'};
+function selfCheck(){
+  selfcheck.runs++;
+  const errs=[];
+  /* ① 位置唯一性 */
+  const seen=new Set();
+  for(const c of CUBIES){
+    const k=c.p.join(',');
+    if(seen.has(k))errs.push('两个方块占用同一格 '+k);
+    seen.add(k);
+    if(c.p.some(v=>v<0||v>2))errs.push('方块越界 '+k);
+  }
+  if(seen.size!==26)errs.push('方块数≠26（'+seen.size+'）');
+  /* ② 面读数完整 */
+  const cnt={};
+  for(const f of FACES){
+    const cols=readFace(f);
+    for(let r=0;r<3;r++)for(let c=0;c<3;c++){
+      const v=cols[r][c];
+      if(!v){errs.push('面'+f+'('+r+','+c+') 读不到贴纸');continue;}
+      cnt[v]=(cnt[v]||0)+1;
+    }
+  }
+  for(const f of FACES)if(cnt[f]!==9)errs.push('颜色'+f+'数量='+(cnt[f]||0));
+  /* ③ 圆环点位合法性 */
+  const keys=new Set();
+  for(const f of FACES)for(let r=0;r<3;r++)for(let c=0;c<3;c++){
+    const p=SITES[siteKey(f,r,c)].p;
+    const k=Math.round(p[0]*100)+','+Math.round(p[1]*100);
+    if(keys.has(k))errs.push('圆环点位重复 '+k);
+    keys.add(k);
+    if(!isFinite(p[0])||!isFinite(p[1]))errs.push('圆环点位 NaN');
+  }
+  if(errs.length){
+    selfcheck.fails++;
+    selfcheck.last='第'+selfcheck.runs+'次自检异常：'+errs.slice(0,2).join('；');
+  }
+  return errs;
+}
+
+/* ---------- 5. 按钮 ---------- */
+const btnScramble=document.getElementById('btnScramble');
+const btnUndo=document.getElementById('btnUndo');
+const btnReset=document.getElementById('btnReset');
+function updateButtons(){
+  const busy=!!state.anim||state.moveQueue.length>0;
+  btnScramble.disabled=busy;
+  btnUndo.disabled=busy||!state.history.length;
+}
+btnScramble.addEventListener('click',()=>{
+  if(state.anim||state.moveQueue.length)return;
+  let la=-1,ll=-1;
+  for(let i=0;i<16;i++){
+    let axis,layer;
+    do{
+      axis=Math.floor(Math.random()*3);
+      layer=Math.random()<0.15?1:(Math.random()<0.5?0:2);
+    }while(axis===la&&layer===ll);
+    la=axis;ll=layer;
+    queueMove(axis,layer,Math.random()<0.5?1:-1,300);
+  }
+});
+btnUndo.addEventListener('click',()=>{
+  if(state.anim||state.moveQueue.length)return;
+  if(!state.history.length)return;
+  const mv=state.history.pop();
+  queueMove(mv.axis,mv.layer,-mv.sigma,380,true);
+});
+btnReset.addEventListener('click',()=>{
+  if(state.anim||state.moveQueue.length)return;
+  state.history=[];
+  initCube();
+  drawDiagram(null,1);drawCube(null,1);
+  updateButtons();
+});
+function refreshDbg(){
+  const el=document.getElementById('dbgLine');
+  if(el){
+    if(!lastMoveInfo)el.textContent='最近一步：—';
+    else{
+      const ax='xyz'[lastMoveInfo.axis];
+      const dir=lastMoveInfo.sigma>0?'顺时针（正方向）':'逆时针（反方向）';
+      const lay=['远端层','中层（切片）','近端层'][lastMoveInfo.layer]||('层 '+lastMoveInfo.layer);
+      el.textContent=`最近一步：${ax} 轴 · ${lay} · ${dir} · 滑动 ${lastMoveInfo.nSlide} 点 / 旋转 ${lastMoveInfo.nRot} 点 · 高亮第 ${lastMoveInfo.ring} 环`;
+    }
+  }
+  const cl=document.getElementById('chkLine');
+  if(cl){
+    cl.textContent=selfcheck.fails
+      ? `自检：异常 ${selfcheck.fails} / ${selfcheck.runs} 次 · ${selfcheck.last}`
+      : `自检：正常 ${selfcheck.runs} 次`;
+  }
+}
+document.getElementById('info').addEventListener('click',()=>{
+  refreshDbg();
+  document.getElementById('overlay').classList.add('show');
+});
+
+/* ---------- 5b. 设置面板（开关 + 灵敏度） ---------- */
+function syncSettings(){
+  const S=state.settings;
+  document.getElementById('swLabels').classList.toggle('on',!!S.labels);
+  document.getElementById('swNeighbors').classList.toggle('on',!!S.neighbors);
+  document.getElementById('swAxisLock').classList.toggle('on',!!S.axisLock);
+  document.getElementById('swCubeOnly').classList.toggle('on',!!S.cubeOnly);
+  document.getElementById('swOrbitRevH').classList.toggle('on',!!S.orbitRevH);
+  document.getElementById('swOrbitRevV').classList.toggle('on',!!S.orbitRevV);
+  document.getElementById('rgOrbitSpeed').value=Math.round((S.orbitSpeed||1)*100);
+  document.getElementById('app').classList.toggle('cubeOnly',!!S.cubeOnly);
+  document.getElementById('rgTol').value=S.tol;
+  TH.start=S.tol;
+}
+function bindSwitch(id,key,after){
+  const el=document.getElementById(id);
+  el.addEventListener('click',()=>{
+    state.settings[key]=!state.settings[key];
+    saveSettings();syncSettings();
+    if(after)after();
+  });
+}
+bindSwitch('swLabels','labels',()=>{if(!state.anim)drawDiagram(null,1);});
+bindSwitch('swNeighbors','neighbors',()=>{
+  if(state.mark&&state.settings.neighbors)state.marks=neighborsOf(state.mark);
+  else state.marks=null;
+  if(!state.anim)drawDiagram(null,1);
+});
+bindSwitch('swAxisLock','axisLock');
+bindSwitch('swCubeOnly','cubeOnly',()=>{handleResize();if(!state.anim)drawDiagram(null,1);});
+bindSwitch('swOrbitRevH','orbitRevH');
+bindSwitch('swOrbitRevV','orbitRevV');
+document.getElementById('rgOrbitSpeed').addEventListener('input',e=>{
+  state.settings.orbitSpeed=(+e.target.value)/100;saveSettings();
+});
+document.getElementById('rgTol').addEventListener('input',e=>{
+  state.settings.tol=+e.target.value;TH.start=state.settings.tol;saveSettings();
+});
+document.getElementById('setBtn').addEventListener('click',()=>{
+  document.getElementById('setPanel').classList.toggle('show');
+});
+document.getElementById('btnViewReset').addEventListener('click',()=>{
+  state.camera.yaw=133*Math.PI/180;state.camera.pitch=0.60;
+  camInit();
+  drawCube(state.anim,state.anim?state.anim.t:1);
+  document.getElementById('setPanel').classList.remove('show');
+});
+document.getElementById('btnClose').addEventListener('click',()=>document.getElementById('overlay').classList.remove('show'));
+document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')document.getElementById('overlay').classList.remove('show');});
+
+/* ---------- 6. 启动 ---------- */
+function handleResize(){
+  state.dpr=Math.min(window.devicePixelRatio||1,2.5);
+  layoutDiagram();layoutCube();
+  drawDiagram(state.anim,state.anim?state.anim.t:1);
+  drawCube(state.anim,state.anim?state.anim.t:1);
+}
+window.addEventListener('resize',handleResize);
+window.addEventListener('orientationchange',()=>setTimeout(handleResize,150));
+window.addEventListener('load',handleResize);
+/* 布局兜底：面板尺寸一变（地址栏收展/旋屏/切"只显示魔方"）就自动重测，杜绝画布拉伸 */
+if(typeof ResizeObserver!=='undefined'){
+  try{
+    const ro=new ResizeObserver(()=>handleResize());
+    ro.observe(document.getElementById('diagramWrap'));
+    ro.observe(document.getElementById('cubeWrap'));
+  }catch(_){}
+}
+initCube();
+syncSettings();          /* ① 先应用设置（含"只显示魔方"的面板类）…… */
+handleResize();          /* ② ……再按最终布局测量画布 —— 顺序反了会拉伸 */
+updateButtons();
+requestAnimationFrame(()=>handleResize());   /* ③ 首帧后再校一次 */
+requestAnimationFrame(t=>{lastT=t;requestAnimationFrame(frame);});
+</script>
+</body>
+</html>
