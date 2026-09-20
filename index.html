@@ -113,7 +113,7 @@
   <header>
     <h1>图论与魔方</h1>
     <div class="rule"></div>
-    <div class="tag">圆环 · 魔方状态的图论映射 <span style="opacity:.55">v13</span></div>
+    <div class="tag">圆环 · 魔方状态的图论映射 <span style="opacity:.55">v14</span></div>
   </header>
   <div id="diagramWrap"><canvas id="diagram"></canvas></div>
   <div class="divider"></div>
@@ -164,7 +164,7 @@
 （左右 / 上下 / 前后）。</p>
 <p id="dbgLine" style="color:#b09264;font-size:11.5px">最近一步：—</p>
 <p id="chkLine" style="color:#b09264;font-size:11.5px">自检：—</p>
-<p style="color:#c8bba4;font-size:11px">版本 v13（启动一律带圆环；修复首屏画布拉伸；拖动方向恢复默认并加多重重测兜底）</p>
+<p style="color:#c8bba4;font-size:11px">版本 v14（修复双指转视角"超灵敏"：改为按两指质心驱动，跟手且不互相干扰）</p>
 <div class="btnrow"><button id="btnClose">知道了</button></div>
 </div></div>
 <script>
@@ -950,13 +950,24 @@ function neighborsOf(cell){
   return out;
 }
 const activePointers=new Set();          /* 用于识别双指（= 转视角） */
+/* 多指位置表（pointerId → {x,y}）：
+   转视角时按【所有手指的质心】驱动。
+   若只存"一个"上次位置，两根手指交替上报时会用错参考点，
+   算出一个等于两指间距的假位移 —— 表现就是"双指灵敏度爆表"。 */
+const ptrPos=new Map();
+function ptrCentroid(){
+  let sx=0,sy=0,n=0;
+  for(const p of ptrPos.values()){sx+=p.x;sy+=p.y;n++;}
+  return n?{x:sx/n,y:sy/n}:null;
+}
 ccv.addEventListener('pointerdown',e=>{
   try{ccv.setPointerCapture(e.pointerId);}catch(_){}
   activePointers.add(e.pointerId);
   const [x,y]=canvasPos(e,ccv);
+  ptrPos.set(e.pointerId,{x,y});
   if(activePointers.size>=2){
     /* 第二根手指落下 → 立刻切换为"转视角"，并取消可能已开始的转层 */
-    drag={mode:'orbit',x0:x,y0:y,yaw0:state.camera.yaw,pitch0:state.camera.pitch,lx:x,ly:y};
+    drag={mode:'orbit',x0:x,y0:y,yaw0:state.camera.yaw,pitch0:state.camera.pitch,lastC:ptrCentroid()};
     state.mark=null;state.marks=null;
     if(!state.anim)drawDiagram(null,1);
     updateButtons();
@@ -968,17 +979,24 @@ ccv.addEventListener('pointerdown',e=>{
   state.marks=(mk&&state.settings.neighbors)?neighborsOf(mk):null;
   if(!state.anim)drawDiagram(null,1);
   if(hit)drag={mode:'sticker',x0:x,y0:y,hit,fired:false,axis:null,dir:null,lx:x,ly:y,dx:0,dy:0};
-  else drag={mode:'orbit',x0:x,y0:y,yaw0:state.camera.yaw,pitch0:state.camera.pitch,lx:x,ly:y};
+  else drag={mode:'orbit',x0:x,y0:y,yaw0:state.camera.yaw,pitch0:state.camera.pitch,lastC:ptrCentroid()};
   updateButtons();
 });
 ccv.addEventListener('pointermove',e=>{
   if(!drag)return;
   const [x,y]=canvasPos(e,ccv);
   if(drag.mode==='orbit'){
-    /* 统一用"增量"驱动：跟手、不跳，且可连续越过极点转满 360° */
-    const dx=x-(drag.lx===undefined?x:drag.lx), dy=y-(drag.ly===undefined?y:drag.ly);
-    drag.lx=x;drag.ly=y;
-    orbitBy(dx,dy);
+    /* 按"所有手指的质心"驱动：单指=该指本身；双指=两指中点。
+       这样两指一起平移 = 跟手；两指张开/捏合（质心不动）不旋转；
+       某根手指的小抖动也只贡献一半，不会互相干扰。 */
+    ptrPos.set(e.pointerId,{x,y});
+    const c=ptrCentroid();
+    if(c){
+      if(!drag.lastC)drag.lastC={x:c.x,y:c.y};
+      const dx=c.x-drag.lastC.x, dy=c.y-drag.lastC.y;
+      drag.lastC={x:c.x,y:c.y};
+      orbitBy(dx,dy);
+    }
     drawCube(state.anim,state.anim?state.anim.t:1);
     return;
   }
@@ -1007,7 +1025,7 @@ ccv.addEventListener('pointermove',e=>{
   drawCube(state.anim,state.anim?state.anim.t:1);
 });
 function endPointer(e){
-  if(e&&e.pointerId!==undefined)activePointers.delete(e.pointerId);
+  if(e&&e.pointerId!==undefined){activePointers.delete(e.pointerId);ptrPos.delete(e.pointerId);}
   const d=drag;drag=null;
   state.marks=null;
   if(state.mark){state.mark=null;if(!state.anim)drawDiagram(null,1);}
